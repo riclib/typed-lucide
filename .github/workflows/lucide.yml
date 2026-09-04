@@ -1,0 +1,80 @@
+name: lucide
+
+# Watch Lucide's releases. A newer tag than the crate version regenerates the
+# icons and opens a pull request; merging it, tagging and publishing stay a
+# person's act.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: which tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest=$(gh release list -R lucide-icons/lucide --limit 1 --json tagName -q '.[0].tagName')
+          current=$(sed -n '/^\[package\]/,/^\[/ s/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "lucide is at $latest, the crate is at $current"
+          if [ "$latest" = "$current" ]; then
+            echo "newer=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "newer=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: regenerate
+        if: steps.tag.outputs.newer == 'true'
+        run: cargo run -p generate -- "${{ steps.tag.outputs.latest }}"
+
+      - name: format
+        if: steps.tag.outputs.newer == 'true'
+        run: cargo fmt --all --check
+
+      - name: test
+        if: steps.tag.outputs.newer == 'true'
+        run: cargo test --workspace --all-features
+
+      - name: open a pull request
+        if: steps.tag.outputs.newer == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.latest }}
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "lucide $TAG changed nothing"
+            exit 0
+          fi
+          branch="lucide-$TAG"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add -A
+          git commit -m "lucide $TAG: the icons, the tags and the categories of that release"
+          git push -u origin "$branch" --force
+          if [ -z "$(gh pr list --head "$branch" --json number -q '.[0].number')" ]; then
+            gh pr create \
+              --title "lucide $TAG" \
+              --body "Lucide released [$TAG](https://github.com/lucide-icons/lucide/releases/tag/$TAG). \`src/icon.rs\`, \`src/meta.rs\` and the crate version follow it. Tests pass. Merging, tagging and \`cargo publish\` are yours." \
+              --base main
+          fi
