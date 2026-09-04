@@ -227,8 +227,9 @@ pub fn meta_rs(tag: &str, icons: &[IconSrc]) -> String {
     out.push_str("];\n\n");
 
     out.push_str(
-        "/// Name, tags and categories of one icon, lowercased and joined — what a\n\
-         /// partial match reads.\n",
+        "/// Name, tags and categories of one icon, lowercased and joined. A word\n\
+         /// that is not in here cannot be on any rung, which is the cheap way to\n\
+         /// pass over the icons a query does not touch.\n",
     );
     let _ = writeln!(out, "pub(crate) static SEARCH_TEXT: [&str; {count}] = [");
     for icon in icons {
@@ -236,6 +237,26 @@ pub fn meta_rs(tag: &str, icons: &[IconSrc]) -> String {
         parts.extend(icon.tags.iter().cloned());
         parts.extend(icon.categories.iter().cloned());
         let _ = writeln!(out, "    {},", lit(&parts.join(" ").to_lowercase()));
+    }
+    out.push_str("];\n\n");
+
+    out.push_str(
+        "/// Each icon's tags, lowercased and cut into words the way a query is —\n\
+         /// on whitespace and hyphens, first spelling kept. A query word never\n\
+         /// holds a space or a hyphen, so this is also every place one can hide.\n",
+    );
+    let _ = writeln!(out, "pub(crate) static TAG_WORDS: [&[&str]; {count}] = [");
+    for icon in icons {
+        let mut words: Vec<String> = Vec::new();
+        for tag in &icon.tags {
+            for word in tag.to_lowercase().split([' ', '\t', '-']) {
+                if !word.is_empty() && !words.iter().any(|seen| seen == word) {
+                    words.push(word.to_string());
+                }
+            }
+        }
+        let joined = words.iter().map(|w| lit(w)).collect::<Vec<_>>().join(", ");
+        let _ = writeln!(out, "    &[{joined}],");
     }
     out.push_str("];\n\n");
 

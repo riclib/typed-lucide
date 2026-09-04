@@ -89,22 +89,44 @@ all_tags();                                      // every tag, sorted
 
 ### Search
 
-The same scoring as the Go library: an exact name is 100, a tag hit above a
-category hit above a substring, stable order for equal scores.
+Every word of the query has to land, so two words narrow the answer instead of
+emptying it:
 
 ```rust
 use typed_lucide::search;
 
-for hit in search("arrow").take(5) {
-    println!("{} {} {:?}", hit.icon, hit.relevance, hit.matched); // Matched::Exact | Tag | Category | Partial
+for hit in search("arrow right").take(4) {
+    println!("{} {} {:?}", hit.icon, hit.relevance, hit.matched);
 }
+// arrow-right 100 Exact
+// arrow-big-right 90 Exact
+// arrow-big-right-dash 90 Exact
+// arrow-down-right 90 Exact
 
 search_with(SearchOptions { query: "edit", max: 10, min_relevance: 50, categories: &[Category::Text] });
 ```
 
-The query is one string, matched whole: `"arrow"` finds icons, `"arrow right"`
-finds only what carries those two words side by side. An empty query is every
-icon, at relevance 50 and `Matched::All`.
+The query, the icon's name and each of its tags are all cut into words on
+whitespace and hyphens. Each query word then scores the best rung it reaches —
+
+| the word …                       | rung |
+|----------------------------------|------|
+| (the whole query names the icon) | 100  |
+| is a word of the name            | 90   |
+| is a word of a tag               | 90   |
+| is a category                    | 80   |
+| sits inside the name             | 60   |
+| sits inside a tag                | 50   |
+| sits inside a category           | 30   |
+
+— and the icon's relevance is the mean of its words' rungs. `Matched` names the
+kind of the best word's rung: `Exact`, `Tag`, `Category`, `Partial`, or `All`
+for an empty query, which is every icon at 50. Equal scores keep name order, and
+word order never matters: `search("right arrow")` is `search("arrow right")`.
+
+This is where the two libraries part. `riclib/icon` matches the query as one
+string, so `"arrow right"` finds only icons carrying those words side by side —
+in Lucide 1.40.0, none. The rungs it does reach score the same here.
 
 ### `serde`
 
@@ -115,7 +137,7 @@ one on the way in.
 
 ```bash
 icon-search search "home"                 # scored hits, name · relevance · why
-icon-search search "arrow" --limit 5
+icon-search search "arrow right" --limit 5
 icon-search info house                    # tags, categories, and ready-to-paste Rust
 icon-search categories
 icon-search list --category navigation

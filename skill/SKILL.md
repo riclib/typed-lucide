@@ -17,11 +17,12 @@ The binary is `icon-search`, on PATH after
 
 ```bash
 icon-search search "home"
-icon-search search "arrow" --limit 5
+icon-search search "arrow right" --limit 5
 ```
 
 Each line is `name · relevance · why`, best first. `why` is `exact`, `tag`,
-`category` or `partial`.
+`category` or `partial`. Every word of the query has to match, so adding a word
+narrows the list; word order does not matter.
 
 ### Get full info for one icon
 
