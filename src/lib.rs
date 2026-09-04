@@ -20,12 +20,14 @@
 
 mod icon;
 mod meta;
+mod search;
 
 use core::fmt;
 use core::str::FromStr;
 
 pub use icon::Icon;
 pub use meta::Category;
+pub use search::{Hit, Matched, SearchOptions, search, search_with};
 
 /// The class every icon carries, on the span and on the `<svg>`.
 const CLASS: &str = "icon";
