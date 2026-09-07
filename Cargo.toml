@@ -3,7 +3,7 @@ members = ["generate"]
 
 [package]
 name = "typed-lucide"
-version = "1.40.0"
+version = "1.41.0"
 edition = "2024"
 license = "MIT AND ISC"
 description = "Every Lucide icon as a Rust enum variant, with its inline SVG, tags, categories, a scored search and an icon-search CLI."
